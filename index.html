@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laporan Kejadian</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    body { background:#f3f4f6; }
+    .thumb { max-width:90px; max-height:60px; border-radius:6px; }
+    .table-fixed thead { position: sticky; top: 0; z-index:1 }
+  </style>
+</head>
+<body class="p-4">
+  <div class="container">
+    <h2 class="mb-4">Formulir Laporan Kejadian (Final)</h2>
+
+    <form id="reportForm" class="row g-3 mb-4">
+      <div class="col-md-3">
+        <label class="form-label">Tanggal</label>
+        <input type="date" class="form-control" id="tanggal" required />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Lokasi</label>
+        <input type="text" class="form-control" id="lokasi" required />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Tempat</label>
+        <input type="text" class="form-control" id="tempat" required />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Jam Mulai</label>
+        <input type="time" class="form-control" id="jamMulai" required />
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Jam Selesai</label>
+        <input type="time" class="form-control" id="jamSelesai" required />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Shift</label>
+        <input type="text" class="form-control" id="shift" required />
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Nama</label>
+        <input type="text" class="form-control" id="nama" required />
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Keterangan</label>
+        <textarea class="form-control" id="keterangan" rows="2" required></textarea>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Informasi Kelanjutan</label>
+        <textarea class="form-control" id="kelanjutan" rows="2"></textarea>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Foto Laporan (jpg/png)</label>
+        <input type="file" accept="image/*" class="form-control" id="foto" />
+      </div>
+
+      <div class="col-12">
+        <button type="submit" class="btn btn-primary">Simpan Laporan</button>
+      </div>
+    </form>
+
+    <div class="mb-3">
+      <button class="btn btn-success me-2" onclick="downloadExcel()">Download Excel</button>
+      <button class="btn btn-danger" onclick="downloadPDF()">Download PDF (dengan foto)</button>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped table-fixed align-middle" id="reportTable">
+        <thead class="table-dark">
+          <tr>
+            <th>Tanggal</th>
+            <th>Lokasi</th>
+            <th>Tempat</th>
+            <th>Jam Mulai</th>
+            <th>Jam Selesai</th>
+            <th>Shift</th>
+            <th>Nama</th>
+            <th>Keterangan</th>
+            <th>Kelanjutan</th>
+            <th>Foto</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // Data array: each item = { row: [...cells], foto: base64 or '' }
+    const records = [];
+
+    document.getElementById('reportForm').addEventListener('submit', async function(e){
+      e.preventDefault();
+
+      const tanggal = document.getElementById('tanggal').value;
+      const lokasi = document.getElementById('lokasi').value.trim();
+      const tempat = document.getElementById('tempat').value.trim();
+      const jamMulai = document.getElementById('jamMulai').value;
+      const jamSelesai = document.getElementById('jamSelesai').value;
+      const shift = document.getElementById('shift').value.trim();
+      const nama = document.getElementById('nama').value.trim();
+      const keterangan = document.getElementById('keterangan').value.trim();
+      const kelanjutan = document.getElementById('kelanjutan').value.trim();
+
+      const fileInput = document.getElementById('foto');
+      let fotoBase64 = '';
+
+      if (fileInput.files && fileInput.files[0]) {
+        fotoBase64 = await fileToBase64(fileInput.files[0]);
+      }
+
+      const row = [tanggal, lokasi, tempat, jamMulai, jamSelesai, shift, nama, keterangan, kelanjutan];
+      records.push({ row, foto: fotoBase64 });
+
+      renderTable();
+      this.reset();
+    });
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('rows');
+      tbody.innerHTML = '';
+      records.forEach((rec, idx) => {
+        const tr = document.createElement('tr');
+        rec.row.forEach(cell => {
+          const td = document.createElement('td');
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+        const tdFoto = document.createElement('td');
+        if (rec.foto) {
+          const img = document.createElement('img');
+          img.src = rec.foto;
+          img.className = 'thumb';
+          tdFoto.appendChild(img);
+        } else {
+          tdFoto.textContent = '-';
+        }
+        tr.appendChild(tdFoto);
+        tbody.appendChild(tr);
+      });
+    }
+
+    function downloadExcel() {
+      const wb = XLSX.utils.book_new();
+      const headers = ["Tanggal","Lokasi","Tempat","Jam Mulai","Jam Selesai","Shift","Nama","Keterangan","Kelanjutan","Foto (tidak termasuk)"];
+      const wsData = [headers];
+      records.forEach(r => {
+        // For Excel we include a note in Foto column, actual image won't be embedded
+        wsData.push([...r.row, r.foto ? 'Ada Foto' : '']);
+      });
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Wrap text
+      const wrapStyle = { alignment: { wrapText: true, vertical: 'top' } };
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const addr = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!ws[addr]) continue;
+          if (!ws[addr].s) ws[addr].s = {};
+          ws[addr].s = { ...ws[addr].s, ...wrapStyle };
+        }
+      }
+
+      ws['!cols'] = [
+        { wch: 12 },{ wch: 15 },{ wch: 15 },{ wch: 10 },{ wch: 10 },{ wch: 12 },{ wch: 18 },{ wch: 40 },{ wch: 40 },{ wch: 12 }
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Laporan');
+      XLSX.writeFile(wb, 'Laporan_Kejadian.xlsx', { cellStyles: true });
+    }
+
+    function downloadPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('landscape', 'mm', 'a4');
+
+      const headers = ["Tanggal","Lokasi","Tempat","Jam Mulai","Jam Selesai","Shift","Nama","Keterangan","Kelanjutan","Foto"];
+      const body = records.map(r => [...r.row, r.foto ? 'IMG' : '']);
+
+      doc.setFontSize(14);
+      doc.text('Laporan Kejadian', 14, 14);
+
+      doc.autoTable({
+        head: [headers],
+        body,
+        startY: 20,
+        styles: { fontSize: 9, cellPadding: 3 },
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: {
+          7: { cellWidth: 50 }, // keterangan
+          8: { cellWidth: 50 }, // kelanjutan
+          9: { cellWidth: 30 }  // foto column
+        },
+        didDrawCell: function (dataCell) {
+          // If this is the foto column (index 9) and the cell has 'IMG' marker, draw the image
+          if (dataCell.column.index === 9 && dataCell.cell.raw === 'IMG') {
+            const record = records[dataCell.row.index];
+            if (record && record.foto) {
+              try {
+                // compute image size to fit cell
+                const img = record.foto;
+                const cell = dataCell.cell;
+                const x = dataCell.cell.x + 2;
+                const y = dataCell.cell.y + 2;
+                const maxWidth = dataCell.cell.width - 4;
+                const maxHeight = dataCell.cell.height - 4;
+                // Insert image; jsPDF can auto-detect type from base64 string
+                doc.addImage(img, x, y, maxWidth, maxHeight);
+              } catch (err) {
+                // ignore image errors
+                console.error('Gagal menampilkan gambar di PDF', err);
+              }
+            }
+          }
+        }
+      });
+
+      doc.save('Laporan_Kejadian.pdf');
+    }
+  </script>
+</body>
+</html>
